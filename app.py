@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import re
-import random
 import csv
 from datetime import datetime
 from PIL import Image, ImageOps, ImageDraw
@@ -14,28 +12,41 @@ ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
 LOGO_PLATEFORME = "logo.png"
 
-# --- LISTE COMPLÈTE DES FILIÈRES GABONAISES ---
-LISTE_FILIERES = [
-    "INSG : Gestion / Marketing / RH", "IST : Génie Civil / Industriel", 
-    "ITO : Informatique / Réseaux", "IUSO : Management / Services", 
-    "ENS : Enseignement Général", "ENSET : Enseignement Technique", 
-    "USS : Médecine / Santé", "USTM : Mines / Polytechnique", 
-    "INSAB : Agronomie / Eaux et Forêts"
-]
+# Liste des universités privées pour le "Plan B"
+PARTENAIRES_PRIVES = ["Aucun", "EM-GABON", "UNIVGA", "IUSTE", "AUI", "BBS", "AUI Business School"]
 
-# --- STYLE CSS (Prestige Bleu & Doré) ---
+# --- STYLE CSS LUXE (Bleu Nuit & Doré) ---
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: #003366; }}
-    .header-bar {{ display: flex; align-items: center; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; margin-bottom: 20px; }}
-    .main-title-small {{ color: #D4AF37 !important; font-size: 18px !important; font-weight: bold; text-transform: uppercase; margin-left: 10px; }}
-    h1, h2, h3, p, label, span {{ color: #D4AF37 !important; }}
-    .urgent-box {{ background-color: #ffffff; padding: 8px; border-radius: 5px; text-align: center; border: 2px solid #ff0000; }}
+    .stApp {{ background-color: #002b5c; }}
+    .header-bar {{ display: flex; align-items: center; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; margin-bottom: 30px; }}
+    .main-title-small {{ color: #D4AF37 !important; font-size: 20px !important; font-weight: bold; text-transform: uppercase; margin-left: 15px; }}
+    
+    /* Formulaire Moderne */
+    [data-testid="stForm"] {{ 
+        background-color: #003a7d !important;
+        border: 2px solid #D4AF37 !important; 
+        border-radius: 20px !important; 
+        padding: 25px !important;
+        box-shadow: 0px 10px 30px rgba(0,0,0,0.5) !important;
+    }}
+    
+    h1, h2, h3, h4, p, label, span {{ color: #D4AF37 !important; }}
+    
+    .stButton>button {{ 
+        background: linear-gradient(90deg, #D4AF37 0%, #f7e08a 100%); 
+        color: #002b5c !important; 
+        font-weight: bold; 
+        border-radius: 50px; 
+        border: none; 
+        transition: 0.3s;
+    }}
+    
+    /* Cartes des Écoles Publics */
     .school-card {{ background: white; padding: 10px; border-radius: 12px; text-align: center; border: 2px solid #D4AF37; margin-bottom: 10px; }}
-    .school-name {{ color: #003366 !important; font-weight: bold; font-size: 12px; }}
-    [data-testid="stForm"] {{ border: 1px solid #D4AF37 !important; border-radius: 15px; padding: 20px; }}
-    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; border-radius: 15px; border: none; width: 100%; }}
-    input, .stSelectbox {{ background-color: #f0f2f6 !important; color: black !important; }}
+    .school-name {{ color: #002b5c !important; font-weight: bold; font-size: 13px; }}
+    
+    input, .stSelectbox {{ background-color: #ffffff !important; color: #002b5c !important; border-radius: 10px !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -49,16 +60,16 @@ def make_small_circle(image_path):
         img.putalpha(mask); return img
     except: return None
 
-# --- NAVIGATION SIDEBAR ---
+# --- BARRE DE NAVIGATION ---
 st.sidebar.markdown("### ⚙️ NAVIGATION")
 espace_pro = st.sidebar.radio("Espace :", ["ACCUEIL CANDIDAT", "ESPACE ÉCOLE PRIVÉE", "ADMINISTRATION"])
 
 # --- HEADER ---
 st.markdown('<div class="header-bar">', unsafe_allow_html=True)
-col_logo, col_text = st.columns([1, 4])
+col_logo, col_text = st.columns([1, 5])
 with col_logo:
     logo = make_small_circle(LOGO_PLATEFORME)
-    if logo: st.image(logo, width=60)
+    if logo: st.image(logo, width=70)
 with col_text:
     st.markdown('<div class="main-title-small">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
@@ -68,66 +79,65 @@ if espace_pro == "ACCUEIL CANDIDAT":
     if 'auth' not in st.session_state: st.session_state.auth = False
     
     if not st.session_state.auth:
-        st.markdown('<div class="urgent-box"><marquee style="color:red; font-weight:bold;">Urgent : Concours des Grandes Écoles Publiques en vue... Inscrivez-vous !</marquee></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:white; color:red; padding:10px; border-radius:10px; text-align:center; font-weight:bold; margin-bottom:20px;"><marquee>Urgent : Concours des Grandes Écoles Publiques en vue... Inscrivez-vous gratuitement pour rester informés !</marquee></div>', unsafe_allow_html=True)
         
-        # FORMULAIRE COMPLET (SANS SIMPLIFICATION)
-        with st.form("inscription_complete"):
-            st.markdown("<h4 style='text-align:center;'>Identifiez-vous pour rejoindre la communauté</h4>", unsafe_allow_html=True)
-            nom = st.text_input("Nom complet")
-            prenom = st.text_input("Prénom")
-            whatsapp = st.text_input("Numéro WhatsApp")
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                nationalite = st.selectbox("Nationalité", ["Gabonaise", "Étrangère"])
-                sexe = st.radio("Sexe", ["Masculin", "Féminin"], horizontal=True)
-            with c2:
-                serie = st.selectbox("Série du BAC", ["A1", "A2", "B", "C", "D", "E", "F", "G"])
-                filiere = st.selectbox("Filière souhaitée", LISTE_FILIERES)
-            
-            if st.form_submit_button("VALIDER ET ACCÉDER AUX INFOS"):
-                if nom and prenom and whatsapp:
-                    st.session_state.auth = True
-                    st.session_state.u = {"n": nom, "p": prenom, "w": whatsapp, "s": serie, "f": filiere}
-                    # Sauvegarde sécurisée pour éviter ParserError
-                    new_data = pd.DataFrame({
-                        "Date": [datetime.now().strftime("%d/%m/%Y %H:%M")],
-                        "Nom": [nom], "Prenom": [prenom], "WhatsApp": [whatsapp],
-                        "Nationalite": [nationalite], "Sexe": [sexe], 
-                        "Serie": [serie], "Filiere": [filiere]
-                    })
-                    new_data.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, quoting=csv.QUOTE_ALL)
-                    st.rerun()
-                else:
-                    st.error("Veuillez remplir tous les champs obligatoires.")
+        _, col_f, _ = st.columns([1, 3, 1])
+        with col_f:
+            with st.form("inscription_gratuite"):
+                st.markdown("<h3 style='text-align:center;'>Inscription Gratuite</h3>", unsafe_allow_html=True)
+                
+                nom_complet = st.text_input("Nom complet")
+                whatsapp = st.text_input("Numéro WhatsApp (pour les alertes)")
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    sexe = st.selectbox("Sexe", ["Masculin", "Féminin"])
+                    serie = st.selectbox("Série du BAC", ["A1", "A2", "B", "C", "D", "E", "F", "G"])
+                with c2:
+                    nationalite = st.selectbox("Nationalité", ["Gabonaise", "Étrangère"])
+                    filiere = st.text_input("Filière souhaitée (ex: Droit, Médecine)")
+
+                choix_prive = st.selectbox(
+                    "🏫 En cas d'échec aux concours publics, quelle école privée souhaitez-vous rejoindre ?",
+                    PARTENAIRES_PRIVES
+                )
+                
+                if st.form_submit_button("VALIDER MON INSCRIPTION"):
+                    if nom_complet and whatsapp:
+                        st.session_state.auth = True
+                        st.session_state.u = {"n": nom_complet, "w": whatsapp}
+                        # Sauvegarde CSV (Correction ParserError)
+                        new_data = pd.DataFrame({
+                            "Date": [datetime.now().strftime("%d/%m/%Y %H:%M")],
+                            "Nom": [nom_complet], "WhatsApp": [whatsapp], "Sexe": [sexe],
+                            "Nationalite": [nationalite], "Serie": [serie], 
+                            "Filiere": [filiere], "Choix_Prive": [choix_prive]
+                        })
+                        new_data.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, quoting=csv.QUOTE_ALL)
+                        st.rerun()
     else:
-        # Dashboard Candidat avec Logos Réels
-        st.markdown(f"### 👋 Bienvenue, {st.session_state.u['p']} {st.session_state.u['n']}")
-        c_inf, c_dis = st.columns([2, 1])
+        # Dashboard avec logos réels
+        st.markdown(f"### 👋 Ravi de vous voir, {st.session_state.u['n']}")
+        c_inf, c_dis = st.columns([3, 1])
         with c_inf:
-            st.markdown("#### 📢 Actualités des Écoles Publiques")
+            st.markdown("#### 🏛️ Actualités des Écoles Publiques")
             ecoles = ["ENS", "ENSET", "IST", "INSG", "ITO", "IUSO", "USS", "USTM", "INSAB"]
             grid = st.columns(3)
             for i, e in enumerate(ecoles):
                 with grid[i % 3]:
                     st.markdown(f'<div class="school-card">', unsafe_allow_html=True)
-                    img_path = f"{e.lower()}.png"
-                    if os.path.exists(img_path): st.image(img_path, width=50)
+                    img_p = f"{e.lower()}.png"
+                    if os.path.exists(img_p): st.image(img_p, width=50)
+                    else: st.write(f"🏛️ {e}")
                     st.markdown(f'<div class="school-name">{e}</div></div>', unsafe_allow_html=True)
         with c_dis:
-            st.markdown("#### 💬 Discussion")
+            st.markdown("#### 💬 Chat")
             st.info("Espace de discussion activé.")
             if st.button("Se déconnecter"): st.session_state.auth = False; st.rerun()
 
-elif espace_pro == "ESPACE ÉCOLE PRIVÉE":
-    st.markdown("### 🔑 Accès Établissement")
-    # Logique de connexion école ici...
-
 elif espace_pro == "ADMINISTRATION":
-    pwd = st.text_input("Code Maître", type="password")
-    if pwd == ADMIN_PASSWORD_MASTER:
-        st.success("Accès Administrateur validé")
+    if st.text_input("Code Maître", type="password") == ADMIN_PASSWORD_MASTER:
         if os.path.exists(DB_FILE):
-            # Correction ParserError : ignore les lignes mal formées
-            df = pd.read_csv(DB_FILE, on_bad_lines='skip', encoding='utf-8-sig')
+            df = pd.read_csv(DB_FILE, on_bad_lines='skip')
             st.dataframe(df)
+            st.markdown(f"**Total candidats inscrits : {len(df)}**")
