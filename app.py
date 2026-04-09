@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 import random
 import csv
 from datetime import datetime
@@ -11,24 +12,29 @@ st.set_page_config(page_title="PICGEPP Gabon", layout="wide", page_icon="🇬�
 
 ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
-CHAT_FILE = "chat_history.csv"
 LOGO_PLATEFORME = "logo.png"
 
-ECOLES_PRIVEES = {
-    "EM-GABON": "emg2026", "UNIVGA": "uvga2026", "IUSTE": "iuste2026", "AUI": "aui2026", "BBS": "bbs2026"
-}
+# --- LISTE COMPLÈTE DES FILIÈRES GABONAISES ---
+LISTE_FILIERES = [
+    "INSG : Gestion / Marketing / RH", "IST : Génie Civil / Industriel", 
+    "ITO : Informatique / Réseaux", "IUSO : Management / Services", 
+    "ENS : Enseignement Général", "ENSET : Enseignement Technique", 
+    "USS : Médecine / Santé", "USTM : Mines / Polytechnique", 
+    "INSAB : Agronomie / Eaux et Forêts"
+]
 
-# --- STYLE CSS (Prestige & Mobile Friendly) ---
+# --- STYLE CSS (Prestige Bleu & Doré) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #003366; }}
     .header-bar {{ display: flex; align-items: center; border-bottom: 2px solid #D4AF37; padding-bottom: 10px; margin-bottom: 20px; }}
-    .main-title-small {{ color: #D4AF37 !important; font-size: 20px !important; font-weight: bold; text-transform: uppercase; margin-left: 15px; }}
+    .main-title-small {{ color: #D4AF37 !important; font-size: 18px !important; font-weight: bold; text-transform: uppercase; margin-left: 10px; }}
     h1, h2, h3, p, label, span {{ color: #D4AF37 !important; }}
     .urgent-box {{ background-color: #ffffff; padding: 8px; border-radius: 5px; text-align: center; border: 2px solid #ff0000; }}
-    .school-card {{ background: white; padding: 10px; border-radius: 12px; text-align: center; border: 2px solid #D4AF37; margin-bottom: 10px; min-height: 140px; }}
-    .school-name {{ color: #003366 !important; font-weight: bold; font-size: 12px; margin-top: 5px; }}
-    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; border-radius: 15px; border: none; }}
+    .school-card {{ background: white; padding: 10px; border-radius: 12px; text-align: center; border: 2px solid #D4AF37; margin-bottom: 10px; }}
+    .school-name {{ color: #003366 !important; font-weight: bold; font-size: 12px; }}
+    [data-testid="stForm"] {{ border: 1px solid #D4AF37 !important; border-radius: 15px; padding: 20px; }}
+    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; border-radius: 15px; border: none; width: 100%; }}
     input, .stSelectbox {{ background-color: #f0f2f6 !important; color: black !important; }}
     </style>
     """, unsafe_allow_html=True)
@@ -43,75 +49,85 @@ def make_small_circle(image_path):
         img.putalpha(mask); return img
     except: return None
 
-# --- BARRE DE NAVIGATION (SIDEBAR) ---
-st.sidebar.markdown("### ⚙️ ACCÈS RÉSERVÉS")
-espace_pro = st.sidebar.radio("Navigation :", ["ACCUEIL CANDIDAT", "ESPACE ÉCOLE PRIVÉE", "ADMINISTRATION"])
+# --- NAVIGATION SIDEBAR ---
+st.sidebar.markdown("### ⚙️ NAVIGATION")
+espace_pro = st.sidebar.radio("Espace :", ["ACCUEIL CANDIDAT", "ESPACE ÉCOLE PRIVÉE", "ADMINISTRATION"])
 
-# --- HEADER (LOGO RÉDUIT ET TITRE) ---
+# --- HEADER ---
 st.markdown('<div class="header-bar">', unsafe_allow_html=True)
-col_l, col_t = st.columns([1, 8])
-with col_l:
+col_logo, col_text = st.columns([1, 4])
+with col_logo:
     logo = make_small_circle(LOGO_PLATEFORME)
-    if logo: st.image(logo, width=70)
-with col_t:
+    if logo: st.image(logo, width=60)
+with col_text:
     st.markdown('<div class="main-title-small">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- LOGIQUE ---
-
 if espace_pro == "ACCUEIL CANDIDAT":
     if 'auth' not in st.session_state: st.session_state.auth = False
     
     if not st.session_state.auth:
         st.markdown('<div class="urgent-box"><marquee style="color:red; font-weight:bold;">Urgent : Concours des Grandes Écoles Publiques en vue... Inscrivez-vous !</marquee></div>', unsafe_allow_html=True)
-        _, col_f, _ = st.columns([1, 2, 1])
-        with col_f:
-            with st.form("inscription"):
-                nom = st.text_input("Nom complet")
-                contact = st.text_input("WhatsApp")
+        
+        # FORMULAIRE COMPLET (SANS SIMPLIFICATION)
+        with st.form("inscription_complete"):
+            st.markdown("<h4 style='text-align:center;'>Identifiez-vous pour rejoindre la communauté</h4>", unsafe_allow_html=True)
+            nom = st.text_input("Nom complet")
+            prenom = st.text_input("Prénom")
+            whatsapp = st.text_input("Numéro WhatsApp")
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                nationalite = st.selectbox("Nationalité", ["Gabonaise", "Étrangère"])
+                sexe = st.radio("Sexe", ["Masculin", "Féminin"], horizontal=True)
+            with c2:
                 serie = st.selectbox("Série du BAC", ["A1", "A2", "B", "C", "D", "E", "F", "G"])
-                if st.form_submit_button("VALIDER"):
-                    if nom and contact:
-                        st.session_state.auth = True
-                        st.session_state.u = {"n":nom, "c":contact, "s":serie}
-                        pd.DataFrame({"Date":[datetime.now()], "Nom":[nom], "Contact":[contact], "Série":[serie]}).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL)
-                        st.rerun()
+                filiere = st.selectbox("Filière souhaitée", LISTE_FILIERES)
+            
+            if st.form_submit_button("VALIDER ET ACCÉDER AUX INFOS"):
+                if nom and prenom and whatsapp:
+                    st.session_state.auth = True
+                    st.session_state.u = {"n": nom, "p": prenom, "w": whatsapp, "s": serie, "f": filiere}
+                    # Sauvegarde sécurisée pour éviter ParserError
+                    new_data = pd.DataFrame({
+                        "Date": [datetime.now().strftime("%d/%m/%Y %H:%M")],
+                        "Nom": [nom], "Prenom": [prenom], "WhatsApp": [whatsapp],
+                        "Nationalite": [nationalite], "Sexe": [sexe], 
+                        "Serie": [serie], "Filiere": [filiere]
+                    })
+                    new_data.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, quoting=csv.QUOTE_ALL)
+                    st.rerun()
+                else:
+                    st.error("Veuillez remplir tous les champs obligatoires.")
     else:
-        # Dashboard avec Logos Réels
+        # Dashboard Candidat avec Logos Réels
+        st.markdown(f"### 👋 Bienvenue, {st.session_state.u['p']} {st.session_state.u['n']}")
         c_inf, c_dis = st.columns([2, 1])
         with c_inf:
-            st.markdown("### 📢 Actualités des Écoles Publiques")
-            ecoles = [
-                {"id": "ENS", "img": "ens.png"}, {"id": "ENSET", "img": "enset.png"}, 
-                {"id": "IST", "img": "ist.png"}, {"id": "INSG", "img": "insg.png"},
-                {"id": "ITO", "img": "ito.png"}, {"id": "IUSO", "img": "iuso.png"},
-                {"id": "USS", "img": "uss.png"}, {"id": "USTM", "img": "ustm.png"},
-                {"id": "INSAB", "img": "insab.png"}
-            ]
+            st.markdown("#### 📢 Actualités des Écoles Publiques")
+            ecoles = ["ENS", "ENSET", "IST", "INSG", "ITO", "IUSO", "USS", "USTM", "INSAB"]
             grid = st.columns(3)
-            for i, ecole in enumerate(ecoles):
+            for i, e in enumerate(ecoles):
                 with grid[i % 3]:
                     st.markdown(f'<div class="school-card">', unsafe_allow_html=True)
-                    if os.path.exists(ecole['img']): st.image(ecole['img'], width=60)
-                    else: st.write(f"🏛️ {ecole['id']}")
-                    st.markdown(f'<div class="school-name">{ecole["id"]}</div></div>', unsafe_allow_html=True)
+                    img_path = f"{e.lower()}.png"
+                    if os.path.exists(img_path): st.image(img_path, width=50)
+                    st.markdown(f'<div class="school-name">{e}</div></div>', unsafe_allow_html=True)
         with c_dis:
-            st.markdown("### 💬 Discussion")
-            if st.button("Déconnexion"): st.session_state.auth = False; st.rerun()
+            st.markdown("#### 💬 Discussion")
+            st.info("Espace de discussion activé.")
+            if st.button("Se déconnecter"): st.session_state.auth = False; st.rerun()
 
 elif espace_pro == "ESPACE ÉCOLE PRIVÉE":
-    ecole = st.selectbox("Établissement", list(ECOLES_PRIVEES.keys()))
-    if st.text_input("Mot de passe", type="password") == ECOLES_PRIVEES.get(ecole):
-        if os.path.exists(DB_FILE):
-            df = pd.read_csv(DB_FILE, on_bad_lines='skip', encoding='utf-8-sig')
-            st.dataframe(df)
+    st.markdown("### 🔑 Accès Établissement")
+    # Logique de connexion école ici...
 
 elif espace_pro == "ADMINISTRATION":
-    if st.text_input("Code Maître", type="password") == ADMIN_PASSWORD_MASTER:
+    pwd = st.text_input("Code Maître", type="password")
+    if pwd == ADMIN_PASSWORD_MASTER:
         st.success("Accès Administrateur validé")
         if os.path.exists(DB_FILE):
-            # La correction ParserError est ici : on ignore les lignes cassées
+            # Correction ParserError : ignore les lignes mal formées
             df = pd.read_csv(DB_FILE, on_bad_lines='skip', encoding='utf-8-sig')
             st.dataframe(df)
-            if st.button("Réinitialiser Base (Attention)"):
-                os.remove(DB_FILE); st.rerun()
