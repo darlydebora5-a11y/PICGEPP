@@ -13,11 +13,13 @@ from io import BytesIO
 # --- CONFIGURATION ---
 st.set_page_config(page_title="PICGEPP Gabon", layout="centered", page_icon="🇬🇦")
 
+# Sécurité
 ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
 CHAT_FILE = "chat_history.csv"
 LOGO_PATH = "logo.png"
 
+# Établissements Privés
 ECOLES_PRIVEES = {
     "EM-GABON": "emg2026", "UNIVGA": "uvga2026", "IUSTE": "iuste2026", "AUI": "aui2026", "BBS": "bbs2026"
 }
@@ -30,7 +32,7 @@ LISTE_FILIERES = [
     "USTM : Mines / Polytechnique", "INSAB : Agronomie"
 ]
 
-# --- STYLE CSS ---
+# --- STYLE CSS (Bleu & Doré) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #003366; }}
@@ -65,7 +67,7 @@ def make_circle(image_path):
         img.putalpha(mask); return img
     except: return None
 
-def generer_pdf_restaure(nom, contact, serie, filiere):
+def generer_pdf_officiel(nom, contact, serie, filiere):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 10); pdf.set_text_color(0, 51, 102)
@@ -79,13 +81,13 @@ def generer_pdf_restaure(nom, contact, serie, filiere):
     pdf.cell(0, 10, f"Serie du BAC : {serie}", ln=True)
     pdf.cell(0, 10, f"Filiere souhaitee : {filiere}", ln=True)
     pdf.ln(10); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "AVANTAGES DU CANDIDAT :", ln=True)
-    pdf.set_font("Arial", '', 12); pdf.multi_cell(0, 10, "- Participation GRATUITE a un concours blanc de preparation.\n- Remise speciale sur l'achat du Guide du Bachelier.")
+    pdf.set_font("Arial", '', 12); pdf.multi_cell(0, 10, "- Participation GRATUITE a un concours blanc de preparation.\n- Remise speciale sur l'achat du Guide du Bachelier (Anciennes epreuves + Corrections).")
     qr_data = f"PICGEPP | Nom: {nom} | Tel: {contact}"
     qr = qrcode.make(qr_data); qr.save("temp_qr.png"); pdf.image("temp_qr.png", x=85, y=pdf.get_y() + 15, w=40)
     return pdf.output(dest='S').encode('latin1')
 
-# --- HEADER ---
-col1, col2, col3 = st.columns([1,2,1])
+# --- HEADER (LOGO CENTRÉ) ---
+col1, col2, col3 = st.columns([1,1,1])
 with col2:
     logo = make_circle(LOGO_PATH)
     if logo: st.image(logo, width=120)
@@ -98,8 +100,9 @@ total, online = obtenir_stats()
 st.markdown(f'<div class="stats-bar"><span style="margin-right:20px;">👥 Inscrits : {total}</span><span>🟢 En ligne : {online}</span></div>', unsafe_allow_html=True)
 
 # --- NAVIGATION ---
-menu = st.sidebar.radio("Navigation", ["ACCUEIL", "INFOS CONCOURS", "ESPACE DISCUSSION", "ADMINISTRATION"])
+menu = st.sidebar.radio("Navigation", ["ACCUEIL", "ESPACE INFORMATIONS", "ESPACE DISCUSSION", "ADMINISTRATION"])
 
+# --- ACCUEIL ---
 if menu == "ACCUEIL":
     if 'auth' not in st.session_state: st.session_state.auth = False
     if not st.session_state.auth:
@@ -114,42 +117,47 @@ if menu == "ACCUEIL":
                 if nom and contact and filiere != "-- Choisissez une filière --":
                     pd.DataFrame({"Date":[datetime.now()], "Nom":[nom], "Contact":[contact], "Série":[serie], "Filière":[filiere], "Ecole_Cible":[choix]}).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, quoting=csv.QUOTE_ALL)
                     st.session_state.auth = True; st.session_state.u = {"n":nom, "c":contact, "s":serie, "f":filiere}; st.rerun()
+                else: st.error("Veuillez remplir les champs correctement.")
     else:
-        st.markdown(f"""<div style="background:white; padding:20px; border-radius:10px; border:2px dashed #D4AF37;">
+        st.markdown(f"""<div class="fiche-info">
             <h4 style="color:#003366 !important; text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
             <p style="color:#003366 !important;"><b>Candidat :</b> {st.session_state.u['n']}<br><b>Série :</b> {st.session_state.u['s']}</p>
             <p style="color:#003366 !important;">✅ Avantages : Concours blanc gratuit + Remise Guide du Bachelier.</p>
         </div>""", unsafe_allow_html=True)
-        pdf = generer_pdf_restaure(st.session_state.u['n'], st.session_state.u['c'], st.session_state.u['s'], st.session_state.u['f'])
-        st.download_button("📥 Télécharger ma Fiche PDF", pdf, f"Fiche_PICGEPP.pdf", "application/pdf")
+        pdf = generer_pdf_officiel(st.session_state.u['n'], st.session_state.u['c'], st.session_state.u['s'], st.session_state.u['f'])
+        st.download_button("📥 Télécharger ma Fiche en PDF", pdf, "Fiche_PICGEPP.pdf", "application/pdf")
         st.button("Déconnexion", on_click=lambda: st.session_state.update({"auth": False}))
 
-elif menu == "INFOS CONCOURS":
-    st.subheader("📢 Alertes & Informations Officielles")
+# --- ESPACE INFORMATIONS ---
+elif menu == "ESPACE INFORMATIONS":
+    st.subheader("📢 Alertes & Informations Concours")
     st.markdown("""
-    <div class="info-card"><b>📌 CONCOURS IST :</b> Ouverture des dossiers le 15 Avril 2026. Frais : 20 000 FCFA.</div>
-    <div class="info-card"><b>📌 CONCOURS ENS :</b> Calendrier des épreuves disponible. Premier tour : 12 Juin 2026.</div>
-    <div class="info-card"><b>📌 ECOLE DES MINES (USTM) :</b> Inscriptions en ligne ouvertes pour les séries C, D et E.</div>
-    <div class="info-card"><b>📌 ECOLE DE SANTÉ :</b> Résultats du premier tour disponibles dans votre centre d'examen.</div>
+    <div class="info-card"><b>📅 CONCOURS IST 2026 :</b> Ouverture des dossiers prévue pour le 15 avril. Pièces : Bac, Acte de naissance, 20.000 FCFA.</div>
+    <div class="info-card"><b>📅 CONCOURS ENS :</b> Inscriptions en ligne ouvertes. Clôture le 30 mai.</div>
+    <div class="info-card"><b>📅 INSG / INSAB :</b> Calendrier des épreuves disponible. Premier tour début juin.</div>
+    <div class="info-card"><b>💡 ASTUCE :</b> Préparez vos anciens sujets dès maintenant pour gagner du temps !</div>
     """, unsafe_allow_html=True)
 
+# --- ESPACE DISCUSSION ---
 elif menu == "ESPACE DISCUSSION":
-    st.subheader("💬 Espace d'échange entre candidats")
+    st.subheader("💬 Échanges entre candidats")
     if not st.session_state.get('auth', False):
-        st.warning("⚠️ Vous devez vous inscrire sur la page d'accueil pour participer aux discussions.")
+        st.warning("⚠️ Inscrivez-vous sur la page d'accueil pour accéder au forum.")
     else:
-        msg = st.text_input("Votre message...")
+        msg = st.text_input("Exprimez-vous ici...", placeholder="Ex: Quelqu'un a les sujets de l'ENS de l'an dernier ?")
         if st.button("Envoyer ✈️") and msg:
             pd.DataFrame({"Date":[datetime.now().strftime("%H:%M")], "User":[st.session_state.u['n']], "Msg":[msg]}).to_csv(CHAT_FILE, mode='a', header=not os.path.exists(CHAT_FILE), index=False)
             st.rerun()
         
         if os.path.exists(CHAT_FILE):
             df_chat = pd.read_csv(CHAT_FILE).iloc[::-1]
-            for i, row in df_chat.head(10).iterrows():
-                st.markdown(f'<div class="chat-msg"><b>{row["User"]}</b> : {row["Msg"]} <span style="float:right; font-size:10px;">{row["Date"]}</span></div>', unsafe_allow_html=True)
+            for i, row in df_chat.head(15).iterrows():
+                st.markdown(f'<div class="chat-msg"><b>{row["User"]}</b> : {row["Msg"]} <span style="float:right; font-size:10px; color:gray;">{row["Date"]}</span></div>', unsafe_allow_html=True)
 
+# --- ADMINISTRATION ---
 elif menu == "ADMINISTRATION":
-    pwd = st.text_input("Code Administrateur", type="password")
+    pwd = st.text_input("Code Admin", type="password")
     if pwd == ADMIN_PASSWORD_MASTER:
-        if os.path.exists(DB_FILE): st.write("### Base Candidats"); st.dataframe(pd.read_csv(DB_FILE))
-        if st.button("Réinitialiser Discussion"): os.remove(CHAT_FILE) if os.path.exists(CHAT_FILE) else None
+        if os.path.exists(DB_FILE): st.dataframe(pd.read_csv(DB_FILE, on_bad_lines='skip'))
+        if st.button("Effacer les discussions"): 
+            if os.path.exists(CHAT_FILE): os.remove(CHAT_FILE); st.rerun()
