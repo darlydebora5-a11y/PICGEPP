@@ -9,34 +9,32 @@ from PIL import Image, ImageOps, ImageDraw
 # --- CONFIGURATION ---
 st.set_page_config(page_title="PICGEPP Gabon", layout="centered", page_icon="🇬🇦")
 
+# Sécurité Admin & Écoles
 ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
 LOGO_PATH = "logo.png"
 
-# --- LISTE DES FILIÈRES PAR ÉTABLISSEMENT (INSG, ITO, IST, IUSO, etc.) ---
+# Les 5 meilleures universités privées (Cloisonnement par mot de passe)
+ECOLES_PRIVEES = {
+    "EM-GABON": "emg2026",
+    "UNIVGA": "uvga2026",
+    "IUSTE": "iuste2026",
+    "AUI": "aui2026",
+    "BBS": "bbs2026"
+}
+
+# --- LISTE DES FILIÈRES ---
 LISTE_FILIERES = [
     "-- Choisir une filière --",
-    "INSG : Comptabilité - Contrôle - Audit (CCA)",
-    "INSG : Marketing et Commerce",
-    "INSG : Gestion des Ressources Humaines",
-    "INSG : Banque et Assurance",
-    "IST : Génie Civil / BTP",
-    "IST : Génie Électrique & Informatique Industrielle",
-    "IST : Génie Mécanique & Productique",
-    "IST : Maintenance Industrielle",
-    "ITO : Technologies de l'Information",
-    "ITO : Réseaux et Télécoms",
-    "ITO : Cybersécurité",
-    "IUSO : Management des Activités de Services",
-    "IUSO : Sciences et Métiers de l'Ogooué",
-    "ENSET : Enseignement Technique (F1, F2, F3, G...)",
-    "ENS : Enseignement Général (Lettres, Sciences, HG)",
+    "INSG : Comptabilité / Marketing / RH",
+    "IST : Génie Civil / BTP / Industriel",
+    "ITO : Informatique / Réseaux / Télécoms",
+    "IUSO : Management / Sciences de l'Ogooué",
+    "ENSET : Enseignement Technique",
+    "ENS : Enseignement Général",
     "USS : Médecine / Santé",
-    "USS : Sciences Infirmières / Sage-femme",
-    "USTM : Mines et Géologie",
-    "USTM : Polytechnique",
-    "INSAB : Agronomie et Élevage",
-    "INSAB : Eaux et Forêts"
+    "USTM : Mines / Polytechnique",
+    "INSAB : Agronomie / Eaux et Forêts"
 ]
 
 # --- STYLE CSS (Bleu & Doré) ---
@@ -67,62 +65,80 @@ def make_circle(image_path):
         return output
     except: return None
 
-# --- HEADER (LOGO & TITRE) ---
+# --- HEADER ---
 col1, col2, col3 = st.columns([1,2,1])
 with col2:
     logo_circ = make_circle(LOGO_PATH)
-    if logo_circ:
-        st.image(logo_circ, width=110)
-    else:
-        st.markdown("<div style='width:110px; height:110px; border-radius:50%; background:#D4AF37; display:flex; align-items:center; justify-content:center; margin:auto; border:2px solid #D4AF37; color:#003366; font-weight:bold; font-size:24px;'>PIC</div>", unsafe_allow_html=True)
+    if logo_circ: st.image(logo_circ, width=110)
+    else: st.markdown("<div style='width:110px; height:110px; border-radius:50%; background:#D4AF37; display:flex; align-items:center; justify-content:center; margin:auto; border:2px solid #D4AF37; color:#003366; font-weight:bold;'>PIC</div>", unsafe_allow_html=True)
 
 st.markdown('<h1 class="main-title">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</h1>', unsafe_allow_html=True)
 st.markdown('<div class="urgent-box"><marquee style="color:red; font-weight:bold;">Urgent : Concours des Grandes Écoles Publiques en vue... Inscris-toi pour rester informé !</marquee></div>', unsafe_allow_html=True)
 
 # --- NAVIGATION ---
-menu = st.sidebar.radio("Navigation", ["ACCUEIL", "ADMIN"])
+menu = st.sidebar.radio("Navigation", ["ACCUEIL CANDIDAT", "ESPACE ÉCOLE PRIVÉE", "SUPER ADMIN"])
 
-# --- ACCUEIL CANDIDAT ---
-if menu == "ACCUEIL":
+# --- 1. ACCUEIL CANDIDAT ---
+if menu == "ACCUEIL CANDIDAT":
     if 'auth' not in st.session_state: st.session_state.auth = False
 
     if not st.session_state.auth:
         with st.form("inscription"):
             st.markdown("<p style='text-align: center; font-weight: bold;'>Identifie-toi pour rejoindre la communauté des bacheliers</p>", unsafe_allow_html=True)
             nom = st.text_input("Nom complet")
-            contact = st.text_input("WhatsApp (ex: 077123456)")
+            contact = st.text_input("WhatsApp")
             serie = st.selectbox("Série du BAC", ["-- Choisir --", "A1", "A2", "B", "C", "D", "E", "F", "G"])
-            filiere = st.selectbox("Établissement & Filière visée", LISTE_FILIERES)
+            filiere = st.selectbox("Filière visée", LISTE_FILIERES)
+            choix_ecole = st.selectbox("Université privée d'intérêt (Facultatif)", ["Aucune"] + list(ECOLES_PRIVEES.keys()))
             
             if st.form_submit_button("VALIDER MON INSCRIPTION"):
                 if nom and contact and serie != "-- Choisir --" and filiere != "-- Choisir une filière --":
                     pd.DataFrame({
                         "Date": [datetime.now().strftime("%d/%m/%Y %H:%M")],
-                        "Nom": [nom], "Contact": [contact], "Série": [serie], "Filière": [filiere]
+                        "Nom": [nom], "Contact": [contact], "Série": [serie], "Filière": [filiere], "Ecole_Cible": [choix_ecole]
                     }).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
                     st.session_state.auth = True
-                    st.session_state.user = {"nom": nom, "contact": contact, "serie": serie, "filiere": filiere}
+                    st.session_state.user = {"nom": nom, "serie": serie, "filiere": filiere}
                     st.rerun()
-                else:
-                    st.error("Veuillez remplir tous les champs.")
+                else: st.error("Champs invalides.")
     else:
         st.markdown(f"""<div class="fiche-info">
             <h4 style="color:#003366 !important; text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
             <p style="color:#003366 !important;"><b>Candidat :</b> {st.session_state.user['nom']}<br>
-            <b>Choix :</b> {st.session_state.user['filiere']}<br>
-            <b>Série :</b> {st.session_state.user['serie']}</p>
-            <p style="color:#003366 !important;">✅ <b>Tes Avantages :</b><br>
-            - Participation gratuite à un <b>concours blanc</b>.<br>
-            - <b>Remise</b> sur l'achat du <b>Guide du Bachelier</b>.</p>
+            <b>Filière :</b> {st.session_state.user['filiere']}<br><b>Série :</b> {st.session_state.user['serie']}</p>
+            <p style="color:#003366 !important;">✅ <b>Tes Avantages :</b> Concours blanc gratuit + Remise Guide du Bachelier.</p>
         </div>""", unsafe_allow_html=True)
-        if st.button("Se déconnecter"):
-            st.session_state.auth = False
-            st.rerun()
+        st.button("Se déconnecter", on_click=lambda: st.session_state.update({"auth": False}))
 
-# --- ADMIN ---
-elif menu == "ADMIN":
-    pwd = st.text_input("Code Admin", type="password")
-    if pwd == ADMIN_PASSWORD_MASTER:
-        if os.path.exists(DB_FILE): 
-            st.write("### Liste des Inscrits")
-            st.dataframe(pd.read_csv(DB_FILE))
+# --- 2. ESPACE ÉCOLE PRIVÉE (CLOISONNÉ) ---
+elif menu == "ESPACE ÉCOLE PRIVÉE":
+    st.subheader("🔑 Connexion Partenaire")
+    ecole = st.selectbox("Votre établissement", list(ECOLES_PRIVEES.keys()))
+    pwd = st.text_input("Mot de passe", type="password")
+    
+    if st.button("Accéder aux Candidats"):
+        if ECOLES_PRIVEES.get(ecole) == pwd:
+            st.session_state.ecole_auth = ecole
+        else: st.error("Identifiants incorrects.")
+
+    if 'ecole_auth' in st.session_state:
+        st.success(f"Espace : {st.session_state.ecole_auth}")
+        if os.path.exists(DB_FILE):
+            df = pd.read_csv(DB_FILE)
+            # Filtre : L'école ne voit que les candidats qui l'ont choisie
+            df_prive = df[df['Ecole_Cible'] == st.session_state.ecole_auth]
+            st.dataframe(df_prive)
+            st.download_button("Télécharger Excel", df_prive.to_csv(index=False), "candidats.csv")
+        if st.button("Quitter"): del st.session_state.ecole_auth; st.rerun()
+
+# --- 3. SUPER ADMIN ---
+elif menu == "SUPER ADMIN":
+    st.subheader("🛠 Contrôle Général")
+    master_pwd = st.text_input("Code Maître", type="password")
+    if master_pwd == ADMIN_PASSWORD_MASTER:
+        st.success("Accès Autorisé")
+        if os.path.exists(DB_FILE):
+            df_all = pd.read_csv(DB_FILE)
+            st.write("### Base de données complète")
+            st.dataframe(df_all)
+            st.write(f"Total inscrits : {len(df_all)}")
