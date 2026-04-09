@@ -15,6 +15,7 @@ st.set_page_config(page_title="PICGEPP Gabon", layout="centered", page_icon="�
 
 ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
+CHAT_FILE = "chat_history.csv"
 LOGO_PATH = "logo.png"
 
 ECOLES_PRIVEES = {
@@ -37,11 +38,10 @@ st.markdown(f"""
     h1, h2, h3, p, label, span {{ color: #D4AF37 !important; }}
     .urgent-box {{ background-color: #ffffff; padding: 10px; border-radius: 5px; text-align: center; border: 2px solid #ff0000; margin-bottom: 15px; }}
     .stats-bar {{ background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px; border: 1px solid #D4AF37; }}
-    .fiche-info {{ background: white; padding: 20px; border-radius: 10px; color: #003366 !important; border: 2px dashed #D4AF37; margin-top: 15px; }}
-    .fiche-info h4, .fiche-info p {{ color: #003366 !important; }}
+    .info-card {{ background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; border-left: 5px solid #D4AF37; margin-bottom: 10px; }}
+    .chat-msg {{ background: white; padding: 10px; border-radius: 10px; color: black !important; margin-bottom: 5px; border-left: 5px solid #007bff; }}
     [data-testid="stForm"] {{ border: 1px solid #D4AF37 !important; padding: 20px !important; border-radius: 15px; max-width: 400px; margin: auto; }}
-    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; width: 100%; border-radius: 20px; border: none; height: 3em; }}
-    input, .stSelectbox {{ background-color: #f0f2f6 !important; color: black !important; }}
+    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; border-radius: 20px; width: 100%; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -68,48 +68,23 @@ def make_circle(image_path):
 def generer_pdf_restaure(nom, contact, serie, filiere):
     pdf = FPDF()
     pdf.add_page()
-    
-    # 1. En-tête : Nom de la plateforme
-    pdf.set_font("Arial", 'B', 10)
-    pdf.set_text_color(0, 51, 102)
+    pdf.set_font("Arial", 'B', 10); pdf.set_text_color(0, 51, 102)
     pdf.cell(0, 10, "PLATEFORME D'INFORMATION AUX CONCOURS DES GRANDES ECOLES PUBLIQUES & PRIVEES", ln=True, align='C')
-    
-    # 2. Logo centré
-    if os.path.exists(LOGO_PATH):
-        pdf.image(LOGO_PATH, x=90, y=25, w=30)
-        pdf.ln(35)
+    if os.path.exists(LOGO_PATH): pdf.image(LOGO_PATH, x=90, y=25, w=30); pdf.ln(35)
     else: pdf.ln(15)
-
-    # 3. Titre du document
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "FICHE D'INFORMATION PICGEPP", ln=True, align='C')
-    pdf.ln(10)
-    
-    # 4. Informations détaillées du candidat
-    pdf.set_font("Arial", '', 12)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", 'B', 16); pdf.cell(0, 10, "FICHE D'INFORMATION PICGEPP", ln=True, align='C'); pdf.ln(10)
+    pdf.set_font("Arial", '', 12); pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, f"Nom complet : {nom.upper()}", ln=True)
     pdf.cell(0, 10, f"Contact WhatsApp : {contact}", ln=True)
     pdf.cell(0, 10, f"Serie du BAC : {serie}", ln=True)
     pdf.cell(0, 10, f"Filiere souhaitee : {filiere}", ln=True)
-    pdf.cell(0, 10, f"Date d'emission : {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True)
-    
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "AVANTAGES DU CANDIDAT :", ln=True)
-    pdf.set_font("Arial", '', 12)
-    pdf.multi_cell(0, 10, "- Droit de participation GRATUITE a un concours blanc de preparation.\n- Remise speciale sur l'achat du Guide du Bachelier (Anciennes epreuves + Corrections).")
-    
-    # 5. QR Code de validation
-    qr_data = f"PICGEPP GABON | Candidat: {nom} | Tel: {contact} | Serie: {serie}"
-    qr = qrcode.make(qr_data)
-    qr_path = "temp_qr.png"
-    qr.save(qr_path)
-    pdf.image(qr_path, x=85, y=pdf.get_y() + 15, w=40)
-    
+    pdf.ln(10); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "AVANTAGES DU CANDIDAT :", ln=True)
+    pdf.set_font("Arial", '', 12); pdf.multi_cell(0, 10, "- Participation GRATUITE a un concours blanc de preparation.\n- Remise speciale sur l'achat du Guide du Bachelier.")
+    qr_data = f"PICGEPP | Nom: {nom} | Tel: {contact}"
+    qr = qrcode.make(qr_data); qr.save("temp_qr.png"); pdf.image("temp_qr.png", x=85, y=pdf.get_y() + 15, w=40)
     return pdf.output(dest='S').encode('latin1')
 
-# --- HEADER ET BANDE DÉROULANTE ---
+# --- HEADER ---
 col1, col2, col3 = st.columns([1,2,1])
 with col2:
     logo = make_circle(LOGO_PATH)
@@ -120,10 +95,10 @@ st.markdown('<h1 class="main-title">Plateforme d’Information aux Concours des 
 st.markdown('<div class="urgent-box"><marquee style="color:red; font-weight:bold;">Urgent : Concours des Grandes Écoles Publiques en vue... Inscrivez-vous pour rester informés !</marquee></div>', unsafe_allow_html=True)
 
 total, online = obtenir_stats()
-st.markdown(f'<div class="stats-bar"><span class="stat-item">👥 Inscrits : {total}</span><span class="stat-item">🟢 En ligne : {online}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="stats-bar"><span style="margin-right:20px;">👥 Inscrits : {total}</span><span>🟢 En ligne : {online}</span></div>', unsafe_allow_html=True)
 
 # --- NAVIGATION ---
-menu = st.sidebar.radio("Navigation", ["ACCUEIL", "ESPACE ÉCOLE", "ADMINISTRATION"])
+menu = st.sidebar.radio("Navigation", ["ACCUEIL", "INFOS CONCOURS", "ESPACE DISCUSSION", "ADMINISTRATION"])
 
 if menu == "ACCUEIL":
     if 'auth' not in st.session_state: st.session_state.auth = False
@@ -134,33 +109,47 @@ if menu == "ACCUEIL":
             contact = st.text_input("WhatsApp (ex: 077123456)")
             serie = st.selectbox("Série du BAC", ["A1", "A2", "B", "C", "D", "E", "F", "G"])
             filiere = st.selectbox("Filière souhaitée", LISTE_FILIERES)
-            choix = st.selectbox("Université privée d'intérêt", ["Aucun"] + list(ECOLES_PRIVEES.keys()))
+            choix = st.selectbox("École privée d'intérêt", ["Aucun"] + list(ECOLES_PRIVEES.keys()))
             if st.form_submit_button("VALIDER MON INSCRIPTION"):
                 if nom and contact and filiere != "-- Choisissez une filière --":
                     pd.DataFrame({"Date":[datetime.now()], "Nom":[nom], "Contact":[contact], "Série":[serie], "Filière":[filiere], "Ecole_Cible":[choix]}).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, quoting=csv.QUOTE_ALL)
-                    st.session_state.auth = True
-                    st.session_state.u = {"n":nom, "c":contact, "s":serie, "f":filiere}
-                    st.rerun()
+                    st.session_state.auth = True; st.session_state.u = {"n":nom, "c":contact, "s":serie, "f":filiere}; st.rerun()
     else:
-        st.markdown(f"""<div class="fiche-info">
-            <h4 style="text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
-            <p><b>Nom :</b> {st.session_state.u['n']}<br><b>Contact :</b> {st.session_state.u['c']}<br><b>Filière :</b> {st.session_state.u['f']}</p>
-            <p>✅ Concours blanc gratuit + Remise Guide du Bachelier.</p>
+        st.markdown(f"""<div style="background:white; padding:20px; border-radius:10px; border:2px dashed #D4AF37;">
+            <h4 style="color:#003366 !important; text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
+            <p style="color:#003366 !important;"><b>Candidat :</b> {st.session_state.u['n']}<br><b>Série :</b> {st.session_state.u['s']}</p>
+            <p style="color:#003366 !important;">✅ Avantages : Concours blanc gratuit + Remise Guide du Bachelier.</p>
         </div>""", unsafe_allow_html=True)
-        
         pdf = generer_pdf_restaure(st.session_state.u['n'], st.session_state.u['c'], st.session_state.u['s'], st.session_state.u['f'])
-        st.download_button("📥 Télécharger ma Fiche PDF", pdf, f"Fiche_PICGEPP_{st.session_state.u['n']}.pdf", "application/pdf")
+        st.download_button("📥 Télécharger ma Fiche PDF", pdf, f"Fiche_PICGEPP.pdf", "application/pdf")
         st.button("Déconnexion", on_click=lambda: st.session_state.update({"auth": False}))
 
-elif menu == "ESPACE ÉCOLE":
-    ecole = st.selectbox("École", list(ECOLES_PRIVEES.keys()))
-    pwd = st.text_input("Mot de passe", type="password")
-    if st.button("Accéder"):
-        if ECOLES_PRIVEES.get(ecole) == pwd: st.session_state.ec_auth = ecole
-    if 'ec_auth' in st.session_state:
-        df = pd.read_csv(DB_FILE, on_bad_lines='skip')
-        st.dataframe(df[df['Ecole_Cible'] == st.session_state.ec_auth])
+elif menu == "INFOS CONCOURS":
+    st.subheader("📢 Alertes & Informations Officielles")
+    st.markdown("""
+    <div class="info-card"><b>📌 CONCOURS IST :</b> Ouverture des dossiers le 15 Avril 2026. Frais : 20 000 FCFA.</div>
+    <div class="info-card"><b>📌 CONCOURS ENS :</b> Calendrier des épreuves disponible. Premier tour : 12 Juin 2026.</div>
+    <div class="info-card"><b>📌 ECOLE DES MINES (USTM) :</b> Inscriptions en ligne ouvertes pour les séries C, D et E.</div>
+    <div class="info-card"><b>📌 ECOLE DE SANTÉ :</b> Résultats du premier tour disponibles dans votre centre d'examen.</div>
+    """, unsafe_allow_html=True)
+
+elif menu == "ESPACE DISCUSSION":
+    st.subheader("💬 Espace d'échange entre candidats")
+    if not st.session_state.get('auth', False):
+        st.warning("⚠️ Vous devez vous inscrire sur la page d'accueil pour participer aux discussions.")
+    else:
+        msg = st.text_input("Votre message...")
+        if st.button("Envoyer ✈️") and msg:
+            pd.DataFrame({"Date":[datetime.now().strftime("%H:%M")], "User":[st.session_state.u['n']], "Msg":[msg]}).to_csv(CHAT_FILE, mode='a', header=not os.path.exists(CHAT_FILE), index=False)
+            st.rerun()
+        
+        if os.path.exists(CHAT_FILE):
+            df_chat = pd.read_csv(CHAT_FILE).iloc[::-1]
+            for i, row in df_chat.head(10).iterrows():
+                st.markdown(f'<div class="chat-msg"><b>{row["User"]}</b> : {row["Msg"]} <span style="float:right; font-size:10px;">{row["Date"]}</span></div>', unsafe_allow_html=True)
 
 elif menu == "ADMINISTRATION":
-    if st.text_input("Code Maître", type="password") == ADMIN_PASSWORD_MASTER:
-        if os.path.exists(DB_FILE): st.dataframe(pd.read_csv(DB_FILE, on_bad_lines='skip'))
+    pwd = st.text_input("Code Administrateur", type="password")
+    if pwd == ADMIN_PASSWORD_MASTER:
+        if os.path.exists(DB_FILE): st.write("### Base Candidats"); st.dataframe(pd.read_csv(DB_FILE))
+        if st.button("Réinitialiser Discussion"): os.remove(CHAT_FILE) if os.path.exists(CHAT_FILE) else None
