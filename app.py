@@ -4,162 +4,91 @@ import os
 import re
 import random
 from datetime import datetime
+import base64
+from fpdf import FPDF
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="PICGEPP Gabon", layout="centered", page_icon="🇬🇦")
 
 ADMIN_PASSWORD_MASTER = "PICGEPPMPIGA19940421"
 DB_FILE = "base_candidats.csv"
-CHAT_FILE = "chat_history.csv"
+ECOLES_PRIVEES = {"EM-GABON": "emg2026", "UNIVGA": "uvga2026", "IUSTE": "iuste2026", "AUI": "aui2026", "BBS": "bbs2026"}
 
-# Accès Écoles Privées (Mots de passe sécurisés)
-ECOLES_PRIVEES = {
-    "EM-GABON": "emg2026",
-    "UNIVGA": "uvga2026",
-    "IUSTE": "iuste2026",
-    "AUI": "aui2026",
-    "BBS": "bbs2026"
-}
-
-# --- STYLE CSS (Optimisé Mobile, Bleu & Doré) ---
+# --- STYLE CSS (Bleu & Doré) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #003366; }}
-    
-    /* CENTRAGE ABSOLU DU LOGO */
-    .header-container {{
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        width: 100%;
-        margin-bottom: 20px;
-    }}
-    .circular-logo {{
-        width: 110px;
-        height: 110px;
-        border-radius: 50%;
-        border: 3px solid #D4AF37;
-        background-color: #D4AF37;
-        color: #003366;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-weight: bold;
-        font-size: 24px;
-        margin-bottom: 10px;
-    }}
-
-    .main-title {{
-        color: #D4AF37 !important;
-        font-size: 22px !important;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin: 0 auto;
-    }}
-
+    .circular-logo-div {{ width: 120px; height: 120px; border-radius: 50%; border: 3px solid #D4AF37; background-color: #D4AF37; display: flex; justify-content: center; align-items: center; margin: 0 auto 15px auto; overflow: hidden; }}
+    .main-title {{ color: #D4AF37 !important; font-size: 24px !important; font-weight: bold; text-align: center; text-transform: uppercase; }}
     h2, h3, p, label, span {{ color: #D4AF37 !important; font-size: 14px; }}
-    
-    .urgent-box {{ 
-        background-color: #ffffff; padding: 8px; border-radius: 5px; 
-        text-align: center; border: 2px solid #ff0000; margin-bottom: 15px; 
-    }}
-    .marquee-text {{ color: #ff0000 !important; font-weight: bold; font-size: 15px; }}
-    
-    .stats-bar {{
-        background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 10px;
-        text-align: center; margin-bottom: 20px; border: 1px solid #D4AF37;
-    }}
-    .stat-item {{ color: #D4AF37; font-weight: bold; font-size: 14px; margin: 0 10px; }}
-    
-    [data-testid="stForm"] {{ border: 1px solid #D4AF37 !important; padding: 15px !important; border-radius: 15px; max-width: 350px; margin: auto; }}
-    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; width: 100%; border-radius: 20px; border: none; }}
-    input, .stSelectbox {{ background-color: #f0f2f6 !important; color: black !important; }}
+    .urgent-box {{ background-color: #ffffff; padding: 8px; border-radius: 5px; text-align: center; border: 2px solid #ff0000; margin-bottom: 15px; }}
+    .fiche-info {{ background: white; padding: 15px; border-radius: 10px; color: #003366 !important; border: 2px dashed #D4AF37; margin-bottom: 15px; }}
+    .stButton>button {{ background-color: #D4AF37; color: #003366; font-weight: bold; width: 100%; border-radius: 20px; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 1. HEADER (LOGO CENTRÉ ET TITRE) ---
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
-if os.path.exists("logo.png"):
-    st.image("logo.png", width=110) # Streamlit centrera l'image car layout="centered"
-else:
-    st.markdown('<div class="circular-logo">PIC</div>', unsafe_allow_html=True)
+# --- FONCTION GÉNÉRATION PDF ---
+def generer_pdf(nom, serie):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, "FICHE D'INFORMATION PICGEPP", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(200, 10, f"Candidat : {nom}", ln=True)
+    pdf.cell(200, 10, f"Serie : {serie}", ln=True)
+    pdf.cell(200, 10, f"Date : {datetime.now().strftime('%d/%m/%Y')}", ln=True)
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, "AVANTAGES ACQUIS :", ln=True)
+    pdf.set_font("Arial", '', 12)
+    pdf.multi_cell(0, 10, "- Participation gratuite a un concours blanc de preparation.\n- Remise speciale sur l'achat du Guide du Bachelier (Epreuves + Corrections).")
+    return pdf.output(dest='S').encode('latin1')
+
+# --- HEADER ---
+st.markdown('<div class="circular-logo-div"><span style="font-size:30px; color:#003366;">PIC</span></div>', unsafe_allow_html=True)
 st.markdown('<h1 class="main-title">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</h1>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 2. BANDE DÉROULANTE ET STATS ---
-st.markdown("""<div class="urgent-box"><marquee class="marquee-text">Urgent : Concours des Grandes Écoles Publiques en vue... Inscris-toi pour rester informé !</marquee></div>""", unsafe_allow_html=True)
-
-def obtenir_stats():
-    total = len(pd.read_csv(DB_FILE)) if os.path.exists(DB_FILE) else 0
-    en_ligne = int(total * random.uniform(0.05, 0.12)) + random.randint(5, 15)
-    return total, en_ligne
-
-total, online = obtenir_stats()
-st.markdown(f'<div class="stats-bar"><span class="stat-item">👥 Inscrits : {total}</span><span class="stat-item">🟢 En ligne : {online}</span></div>', unsafe_allow_html=True)
+# --- BANDE DÉROULANTE ---
+st.markdown('<div class="urgent-box"><marquee style="color:red; font-weight:bold;">Urgent : Concours des Grandes Écoles Publiques en vue... Inscris-toi pour rester informé !</marquee></div>', unsafe_allow_html=True)
 
 # --- NAVIGATION ---
-menu = st.sidebar.radio("Navigation", ["ACCUEIL CANDIDAT", "ESPACE ÉCOLE PRIVÉE", "SUPER ADMIN"])
+menu = st.sidebar.radio("Navigation", ["ACCUEIL", "ESPACE ÉCOLE", "ADMIN"])
 
-# --- 3. ACCUEIL CANDIDAT ---
-if menu == "ACCUEIL CANDIDAT":
+# --- ACCUEIL ---
+if menu == "ACCUEIL":
     if 'auth' not in st.session_state: st.session_state.auth = False
 
     if not st.session_state.auth:
         with st.form("inscription"):
-            st.markdown("<p style='text-align: center; font-weight: bold;'>Identifie-toi pour rejoindre la communauté des bacheliers</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center;'>Identifie-toi pour rejoindre la communauté</p>", unsafe_allow_html=True)
             nom = st.text_input("Nom complet")
-            contact = st.text_input("WhatsApp (ex: 077123456)")
+            contact = st.text_input("WhatsApp")
             serie = st.selectbox("Série du BAC", ["A1", "A2", "B", "C", "D", "E", "F", "G"])
-            
             if st.form_submit_button("VALIDER MON INSCRIPTION"):
-                if nom and contact and len(contact) >= 9:
-                    data = {"Date": [datetime.now().strftime("%d/%m/%Y %H:%M")], "Nom": [nom], "Contact": [contact], "Série": [serie]}
-                    pd.DataFrame(data).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
+                if nom and contact:
+                    pd.DataFrame({"Nom":[nom], "Contact":[contact], "Série":[serie]}).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False)
                     st.session_state.auth = True
                     st.session_state.user = {"nom": nom, "serie": serie}
                     st.rerun()
-                else: st.error("Champs invalides")
     else:
-        tab1, tab2 = st.tabs(["📄 Ma Fiche PICGEPP", "💬 Forum"])
-        with tab1:
-            st.markdown(f"""<div style="background:white; padding:15px; border-radius:10px; color:#003366 !important;">
-                <h4 style="color:#003366 !important; text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
-                <p style="color:#003366 !important;"><b>Candidat :</b> {st.session_state.user['nom']}<br>✅ <b>Avantages :</b> Concours blanc gratuit + Remise Guide du Bachelier.</p>
-            </div>""", unsafe_allow_html=True)
-        with tab2:
-            st.subheader("💬 Discussion")
-            if os.path.exists(CHAT_FILE):
-                chat_data = pd.read_csv(CHAT_FILE).tail(10)
-                for i, row in chat_data.iterrows(): 
-                    st.markdown(f"**{row['User']}**: {row['Message']}")
-            txt = st.text_input("Message")
-            if st.button("Envoyer"):
-                pd.DataFrame({"Date":[datetime.now()], "User":[st.session_state.user['nom']], "Message":[txt]}).to_csv(CHAT_FILE, mode='a', header=not os.path.exists(CHAT_FILE), index=False)
-                st.rerun()
+        # AFFICHAGE DE LA FICHE
+        st.markdown(f"""<div class="fiche-info">
+            <h4 style="color:#003366 !important; text-align:center;">📄 FICHE D'INFORMATION PICGEPP</h4>
+            <p style="color:#003366 !important;"><b>Nom :</b> {st.session_state.user['nom']}<br><b>Série :</b> {st.session_state.user['serie']}</p>
+            <p style="color:#003366 !important;">✅ <b>Avantages :</b> Concours blanc gratuit + Remise Guide du Bachelier.</p>
+        </div>""", unsafe_allow_html=True)
+        
+        # BOUTON TÉLÉCHARGEMENT PDF
+        pdf_data = generer_pdf(st.session_state.user['nom'], st.session_state.user['serie'])
+        st.download_button(label="📥 Télécharger ma Fiche en PDF", data=pdf_data, file_name=f"Fiche_PICGEPP_{st.session_state.user['nom']}.pdf", mime="application/pdf")
+        
+        if st.button("Se déconnecter"):
+            st.session_state.auth = False
+            st.rerun()
 
-# --- 4. ESPACE ÉCOLE PRIVÉE (CLOISONNÉ) ---
-elif menu == "ESPACE ÉCOLE PRIVÉE":
-    st.subheader("Accès Établissement Partenaire")
-    ecole = st.selectbox("Sélectionnez votre École", list(ECOLES_PRIVEES.keys()))
-    pwd = st.text_input("Mot de passe", type="password")
-    if st.button("Connexion"):
-        if ECOLES_PRIVEES.get(ecole) == pwd: st.session_state.ecole_user = ecole
-        else: st.error("Accès refusé.")
-    if 'ecole_user' in st.session_state:
-        st.success(f"Connecté : {st.session_state.ecole_user}")
-        if os.path.exists(DB_FILE):
-            df = pd.read_csv(DB_FILE)
-            st.dataframe(df) # Voir tous les candidats pour cet établissement
-        if st.button("Déconnexion"): st.session_state.pop('ecole_user'); st.rerun()
-
-# --- 5. SUPER ADMIN ---
-elif menu == "SUPER ADMIN":
-    st.subheader("🛠 Administration Générale")
-    master_pwd = st.text_input("Code Maître", type="password")
-    if master_pwd == ADMIN_PASSWORD_MASTER:
-        st.success("Mode Maître Activé")
-        if os.path.exists(DB_FILE):
-            st.write("### Liste Globale")
-            st.dataframe(pd.read_csv(DB_FILE))
+# --- ADMIN ---
+elif menu == "ADMIN":
+    pwd = st.text_input("Code Admin", type="password")
+    if pwd == ADMIN_PASSWORD_MASTER:
+        if os.path.exists(DB_FILE): st.dataframe(pd.read_csv(DB_FILE))
