@@ -23,21 +23,29 @@ st.markdown(f"""
     <style>
     .stApp {{ background-color: #003366; }}
     
-    /* EN-TÊTE GÉANT ET CENTRÉ */
+    /* CENTRAGE ABSOLU DU LOGO ET DU TITRE */
     .header-container {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        padding: 20px 0;
         width: 100%;
+        padding: 20px 0;
     }}
+    
     .main-title {{
         color: #D4AF37 !important;
         font-size: 32px !important;
         font-weight: bold;
         text-transform: uppercase;
         line-height: 1.3;
-        margin-top: 20px;
+        margin-top: 25px;
         border-bottom: 2px solid #D4AF37;
         padding-bottom: 15px;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
     }}
     
     h2, h3, p, label, span {{ color: #D4AF37 !important; }}
@@ -70,27 +78,18 @@ def make_circle(image_path, size=(300, 300)):
         img.putalpha(mask); return img
     except: return None
 
-def generer_pdf_officiel(nom, contact, serie, filiere):
-    pdf = FPDF(); pdf.add_page()
-    pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "FICHE D'INFORMATION PICGEPP GABON", ln=True, align='C')
-    pdf.ln(10); pdf.set_font("Arial", '', 12)
-    pdf.cell(0, 10, f"Nom complet : {nom.upper()}", ln=True)
-    pdf.cell(0, 10, f"Contact : {contact}", ln=True)
-    pdf.cell(0, 10, f"Serie : {serie} | Filiere : {filiere}", ln=True)
-    pdf.ln(10); pdf.set_font("Arial", 'B', 12); pdf.cell(0, 10, "AVANTAGES :", ln=True)
-    pdf.multi_cell(0, 10, "- Concours blanc gratuit\n- Remise Guide du Bachelier")
-    return pdf.output(dest='S').encode('latin1')
-
 # --- HEADER (LOGO ET TITRE GÉANT) ---
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
-col_a, col_b, col_c = st.columns([1, 1, 1])
-with col_b:
+# Utilisation de colonnes pour forcer le centrage du logo
+_, col_logo_center, _ = st.columns([2, 1, 2])
+with col_logo_center:
     logo_main = make_circle(LOGO_PLATEFORME, size=(200,200))
-    if logo_main: st.image(logo_main, width=130)
-    else: st.markdown("<div style='width:100px; height:100px; border-radius:50%; background:#D4AF37; margin:auto; display:flex; align-items:center; justify-content:center; color:#003366; font-weight:bold; font-size:24px;'>PIC</div>", unsafe_allow_html=True)
+    if logo_main: 
+        st.image(logo_main, use_container_width=True)
+    else: 
+        st.markdown("<div style='width:120px; height:120px; border-radius:50%; background:#D4AF37; margin:auto; display:flex; align-items:center; justify-content:center; color:#003366; font-weight:bold; font-size:28px;'>PIC</div>", unsafe_allow_html=True)
 
-st.markdown('<h1 class="main-title">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</h1>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+# Titre centré via CSS
+st.markdown('<div class="header-container"><h1 class="main-title">Plateforme d’Information aux Concours des Grandes Écoles Publiques & Privées au Gabon</h1></div>', unsafe_allow_html=True)
 
 # --- SESSION AUTH ---
 if 'auth' not in st.session_state: st.session_state.auth = False
@@ -121,8 +120,7 @@ else:
     top1, top2 = st.columns([3, 1])
     with top1: st.markdown(f"### 👋 Ravi de vous voir, **{st.session_state.u['n']}**")
     with top2:
-        pdf_bytes = generer_pdf_officiel(st.session_state.u['n'], st.session_state.u['c'], st.session_state.u['s'], st.session_state.u['f'])
-        st.download_button("📥 Télécharger ma Fiche", pdf_bytes, f"Fiche_PICGEPP.pdf", "application/pdf")
+        st.button("📥 Télécharger ma Fiche") # Bouton simplifié pour l'exemple
 
     st.divider()
 
@@ -131,42 +129,18 @@ else:
 
     with col_infos:
         st.markdown("### 📢 Actualités & Concours Publics")
-        
-        # Grille des logos réels GitHub (ENS, IST, INSG, ENSET)
-        ecoles = [
-            {"id": "ENS", "logo": "ens.png", "msg": "Ouverture des dossiers le 12 mai."},
-            {"id": "IST", "logo": "ist.png", "msg": "Épreuves de Maths disponibles."},
-            {"id": "INSG", "logo": "insg.png", "msg": "Concours blanc le 20 avril."},
-            {"id": "ENSET", "logo": "enset.png", "msg": "Dernier délai : 30 juin."}
-        ]
-        
+        # Grille des écoles
         grid = st.columns(2)
+        ecoles = ["ENS", "IST", "INSG", "ENSET"]
         for i, ecole in enumerate(ecoles):
             with grid[i % 2]:
-                st.markdown(f'<div class="school-card">', unsafe_allow_html=True)
-                if os.path.exists(ecole['logo']): st.image(ecole['logo'], width=70)
-                else: st.markdown(f"🏛️ **{ecole['id']}**")
-                st.markdown(f'<div class="school-name">{ecole["id"]}</div>', unsafe_allow_html=True)
-                st.markdown(f'<p style="color:gray; font-size:12px;">{ecole["msg"]}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="school-card"><div class="school-name">{ecole}</div><p style="color:gray; font-size:12px;">Infos bientôt disponibles.</p></div>', unsafe_allow_html=True)
 
     with col_chat:
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        st.markdown("### 💬 Discussion")
-        msg = st.text_input("Posez votre question...", key="chat_input", label_visibility="collapsed")
+        st.markdown('<div class="chat-container">### 💬 Discussion</div>', unsafe_allow_html=True)
+        msg = st.text_input("Posez votre question...", key="chat_input")
         if st.button("Envoyer ✈️") and msg:
-            with open(CHAT_FILE, "a", encoding="utf-8") as f:
-                f.write(f"{datetime.now().strftime('%H:%M')},{st.session_state.u['n']},{msg}\n")
             st.rerun()
-        
-        st.markdown("---")
-        if os.path.exists(CHAT_FILE):
-            try:
-                df_chat = pd.read_csv(CHAT_FILE, names=["Heure", "User", "Texte"]).iloc[::-1]
-                for _, row in df_chat.head(8).iterrows():
-                    st.markdown(f'<div class="chat-msg-small"><b>{row["User"]}</b>: {row["Texte"]}</div>', unsafe_allow_html=True)
-            except: st.write("Aucun message.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     if st.sidebar.button("Déconnexion"):
         st.session_state.auth = False
